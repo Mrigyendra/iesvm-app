@@ -499,7 +499,7 @@ tr:hover td {
   color: var(--diesel);
 }
 
-.rolebadge.super {
+.rolebadge.super, .rolebadge.staff {
   background: var(--green-soft);
   color: var(--green);
 }
@@ -754,8 +754,56 @@ dialog::backdrop {
   filter: brightness(0.9);
 }
 
+/* Role Tabs on Login */
+.roletabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.roletab {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 12px 10px;
+  cursor: pointer;
+  text-align: center;
+  background: #fdfdfb;
+  transition: var(--transition);
+  user-select: none;
+}
+
+.roletab.active {
+  border-color: var(--diesel);
+  background: var(--diesel-soft);
+}
+
+.roletab .t {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.roletab .d {
+  font-size: 11px;
+  color: var(--sub);
+  margin-top: 3px;
+  line-height: 1.2;
+}
+
+.roletab:hover {
+  border-color: var(--diesel);
+  background: #fafaf7;
+}
+
+.roletab.active:hover {
+  background: var(--diesel-soft);
+}
+
 /* Hide admin features dynamically */
-body.role-super .admin-only {
+body.role-staff .admin-only {
   display: none !important;
 }
 

@@ -14,7 +14,7 @@ const store = {
   fuel: [],
   maint: [],
   user: null,
-  role: 'super' // defaults to read-only supervisor
+  role: 'staff' // defaults to read-only staff
 };
 
 // Cached Chart Instances
@@ -28,6 +28,7 @@ const vName = id => {
 
 // ---- Authentication Setup ----
 let isSignUpMode = false;
+let pickedRole = 'admin';
 
 document.addEventListener('DOMContentLoaded', () => {
   initApp();
@@ -39,15 +40,38 @@ function initApp() {
   const toggleAuthMode = document.getElementById('toggleAuthMode');
   const loginEmail = document.getElementById('loginEmail');
   const loginPass = document.getElementById('loginPass');
+  const tabAdmin = document.getElementById('tabAdmin');
+  const tabStaff = document.getElementById('tabStaff');
+
+  if (tabAdmin && tabStaff) {
+    tabAdmin.addEventListener('click', () => {
+      pickedRole = 'admin';
+      tabAdmin.classList.add('active');
+      tabStaff.classList.remove('active');
+      document.getElementById('loginErr').textContent = '';
+    });
+    tabStaff.addEventListener('click', () => {
+      pickedRole = 'staff';
+      tabStaff.classList.add('active');
+      tabAdmin.classList.remove('active');
+      document.getElementById('loginErr').textContent = '';
+    });
+  }
 
   btnSubmitAuth.addEventListener('click', handleAuthSubmit);
   toggleAuthMode.addEventListener('click', (e) => {
     e.preventDefault();
     isSignUpMode = !isSignUpMode;
     document.getElementById('loginTitle').textContent = isSignUpMode ? 'Create IES VM Account' : 'IES VM';
-    document.getElementById('loginSub').textContent = isSignUpMode ? 'Register a new profile (defaults to Supervisor)' : 'Vehicle Management · Innovative Engineering Services';
+    document.getElementById('loginSub').textContent = isSignUpMode ? 'Register a new profile (defaults to Staff)' : 'Vehicle Management · Innovative Engineering Services';
     btnSubmitAuth.textContent = isSignUpMode ? 'Sign Up' : 'Sign In';
     toggleAuthMode.textContent = isSignUpMode ? 'Already have an account? Sign In' : "Don't have an account? Sign Up";
+    
+    // Hide role tabs during sign up
+    const roletabs = document.querySelector('.roletabs');
+    if (roletabs) {
+      roletabs.style.display = isSignUpMode ? 'none' : 'flex';
+    }
     document.getElementById('loginErr').textContent = '';
   });
 
@@ -87,11 +111,21 @@ function initApp() {
     if (session) {
       store.user = session.user;
       await fetchUserRole(session.user.id);
+      
+      // Validate role if user is logging in (exclude sign up mode)
+      const loginScreenVisible = document.getElementById('loginScreen').style.display !== 'none';
+      if (loginScreenVisible && !isSignUpMode && store.role !== pickedRole) {
+        document.getElementById('loginErr').textContent = `Access denied: Account is registered as ${store.role.toUpperCase()}, but you selected ${pickedRole.toUpperCase()} login.`;
+        if (btnSubmitAuth) btnSubmitAuth.disabled = false;
+        await supabase.auth.signOut();
+        return;
+      }
+      
       showAppScreen();
       await fetchAllData();
     } else {
       store.user = null;
-      store.role = 'super';
+      store.role = 'staff';
       showLoginScreen();
     }
   });
@@ -116,26 +150,26 @@ async function fetchUserRole(userId) {
       .single();
 
     if (error) {
-      console.warn('Error reading user profile, defaulting to supervisor:', error.message);
-      store.role = 'super';
+      console.warn('Error reading user profile, defaulting to staff:', error.message);
+      store.role = 'staff';
     } else if (data) {
       store.role = data.role;
     }
   } catch (err) {
     console.error('Failed to get user profile', err);
-    store.role = 'super';
+    store.role = 'staff';
   }
 }
 
 function showAppScreen() {
-  document.body.classList.toggle('role-super', store.role === 'super');
+  document.body.classList.toggle('role-staff', store.role === 'staff');
   const badge = document.getElementById('roleBadge');
-  badge.textContent = store.role === 'admin' ? 'Admin' : 'Supervisor';
-  badge.className = 'rolebadge ' + (store.role === 'admin' ? 'admin' : 'super');
+  badge.textContent = store.role === 'admin' ? 'Admin' : 'Staff';
+  badge.className = 'rolebadge ' + (store.role === 'admin' ? 'admin' : 'staff');
 
-  // Supervisor read-only banners
-  const note = store.role === 'super'
-    ? '<div class="viewonly-note">👁 Supervisor view — records are read-only. You can review data, dashboards and download reports.</div>' 
+  // Staff banner (allows adding entries, but hides edit/delete buttons)
+  const note = store.role === 'staff'
+    ? '<div class="viewonly-note">👁 Staff view — you can view and add entries, but you cannot edit or delete them once saved.</div>' 
     : '';
   document.getElementById('fuelViewNote').innerHTML = note;
   document.getElementById('maintViewNote').innerHTML = note;
@@ -146,7 +180,7 @@ function showAppScreen() {
 
 function showLoginScreen() {
   document.getElementById('app').classList.remove('on');
-  document.body.classList.remove('role-super');
+  document.body.classList.remove('role-staff');
   document.getElementById('loginScreen').style.display = 'grid';
   document.getElementById('loginEmail').value = '';
   document.getElementById('loginPass').value = '';

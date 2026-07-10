@@ -23,6 +23,15 @@
 
       <!-- AUTH FORM -->
       <div id="authForm">
+        <div class="roletabs">
+          <div class="roletab active" id="tabAdmin" data-role="admin">
+            <div class="t">Admin</div><div class="d">Full access & edits</div>
+          </div>
+          <div class="roletab" id="tabStaff" data-role="staff">
+            <div class="t">Staff</div><div class="d">Log entries & view</div>
+          </div>
+        </div>
+
         <label class="f" for="loginEmail">Email Address</label>
         <input id="loginEmail" type="email" autocomplete="username" placeholder="name@email.com">
         
@@ -106,7 +115,7 @@
         <div class="toolbar">
           <h2 class="section" style="margin:0">Registered Vehicles</h2>
           <div class="spacer"></div>
-          <button class="btn admin-only" id="btnAddVehicle">+ Add Vehicle</button>
+          <button class="btn" id="btnAddVehicle">+ Add Vehicle</button>
         </div>
         <div class="tablewrap">
           <table>
@@ -132,8 +141,8 @@
       <!-- FUEL & MILEAGE VIEW -->
       <section class="view" id="fuel">
         <div id="fuelViewNote"></div>
-        <h2 class="section admin-only">Log Fuel Entry</h2>
-        <div class="card admin-only" style="margin-bottom:20px">
+        <h2 class="section">Log Fuel Entry</h2>
+        <div class="card" style="margin-bottom:20px">
           <div class="formgrid">
             <div>
               <label class="f" for="fVeh">Vehicle</label>
@@ -196,8 +205,8 @@
       <!-- REPAIRS & MAINTENANCE VIEW -->
       <section class="view" id="maintenance">
         <div id="maintViewNote"></div>
-        <h2 class="section admin-only">Log Repair / Maintenance</h2>
-        <div class="card admin-only" style="margin-bottom:20px">
+        <h2 class="section">Log Repair / Maintenance</h2>
+        <div class="card" style="margin-bottom:20px">
           <div class="formgrid">
             <div>
               <label class="f" for="mVeh">Vehicle</label>
