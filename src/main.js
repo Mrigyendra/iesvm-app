@@ -262,7 +262,7 @@ function setupControls() {
 
   // Vehicles Dialog Action
   document.getElementById('btnAddVehicle').addEventListener('click', () => {
-    if (!requireAdmin()) return;
+    if (store.role !== 'admin' && store.role !== 'staff') return;
     document.getElementById('vId').value = '';
     document.getElementById('vNo').value = '';
     document.getElementById('vModel').value = '';
