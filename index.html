@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IES VM — Vehicle Management</title>
+  <link rel="stylesheet" href="/src/style.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#12211c">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- LOGIN & SIGNUP SCREEN -->
+  <div id="loginScreen">
+    <div class="loginbox">
+      <div class="logo">VM</div>
+      <h2 id="loginTitle">IES VM</h2>
+      <p id="loginSub">Vehicle Management · Innovative Engineering Services</p>
+
+      <!-- AUTH FORM -->
+      <div id="authForm">
+        <label class="f" for="loginEmail">Email Address</label>
+        <input id="loginEmail" type="email" autocomplete="username" placeholder="name@email.com">
+        
+        <label class="f" for="loginPass">Password</label>
+        <div class="password-wrapper">
+          <input id="loginPass" type="password" autocomplete="current-password" placeholder="Enter password">
+          <button type="button" id="togglePassVisibility" class="pass-toggle-btn" aria-label="Toggle password visibility">👁️</button>
+        </div>
+        
+        <div class="loginerr" id="loginErr"></div>
+        
+        <button class="btn" id="btnSubmitAuth">Sign In</button>
+        
+        <div class="auth-toggle">
+          <a href="#" id="toggleAuthMode">Don't have an account? Sign Up</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP CONTAINER -->
+  <div id="app">
+    <header>
+      <div class="brand">
+        <div class="logo">VM</div>
+        <div>
+          <h1>IES VM</h1>
+          <div class="tag">Vehicle Management</div>
+        </div>
+      </div>
+      <div class="datawrap">
+        <span class="rolebadge admin" id="roleBadge">Supervisor</span>
+        <button class="databtn" id="btnExportData">↓ Backup</button>
+        <button class="databtn admin-only" id="btnRestoreDataTrigger">↑ Restore</button>
+        <button class="databtn admin-only" id="btnLoadSample">Sample Data</button>
+        <button class="databtn" id="btnChangePass">Change Password</button>
+        <button class="databtn" id="btnLogout">Logout</button>
+        <input type="file" id="importFile" accept=".json" style="display:none">
+      </div>
+    </header>
+
+    <nav>
+      <button class="active" data-view="dashboard">Dashboard</button>
+      <button data-view="vehicles">Vehicles</button>
+      <button data-view="fuel">Fuel & Mileage</button>
+      <button data-view="maintenance">Repairs & Maintenance</button>
+      <button data-view="reports">Reports</button>
+    </nav>
+
+    <main>
+      <!-- DASHBOARD VIEW -->
+      <section class="view active" id="dashboard">
+        <h2 class="section">Fleet Overview</h2>
+        <div id="dashAlerts"></div>
+        <div class="grid stat" id="dashStats"></div>
+        <div style="height:24px"></div>
+        <div class="row2">
+          <div class="chartbox">
+            <h3>Average Mileage by Vehicle (km/L)</h3>
+            <div class="cwrap"><canvas id="chMileage"></canvas></div>
+          </div>
+          <div class="chartbox">
+            <h3>Total Fuel by Vehicle (L)</h3>
+            <div class="cwrap"><canvas id="chFuel"></canvas></div>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="chartbox">
+            <h3>Monthly Repair & Maintenance Cost</h3>
+            <div class="cwrap"><canvas id="chRepairMonth"></canvas></div>
+          </div>
+          <div class="chartbox">
+            <h3>Cost Split: Fuel vs Maintenance</h3>
+            <div class="cwrap"><canvas id="chCostSplit"></canvas></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VEHICLES VIEW -->
+      <section class="view" id="vehicles">
+        <div class="toolbar">
+          <h2 class="section" style="margin:0">Registered Vehicles</h2>
+          <div class="spacer"></div>
+          <button class="btn admin-only" id="btnAddVehicle">+ Add Vehicle</button>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Vehicle No.</th>
+                <th>Type</th>
+                <th>Make / Model</th>
+                <th>Driver</th>
+                <th>Fuel</th>
+                <th>Logs</th>
+                <th>Last Odo (km)</th>
+                <th>Avg km/L</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="vehBody"></tbody>
+          </table>
+          <div class="empty" id="vehEmpty">No vehicles yet. Add your first vehicle to begin.</div>
+        </div>
+      </section>
+
+      <!-- FUEL & MILEAGE VIEW -->
+      <section class="view" id="fuel">
+        <div id="fuelViewNote"></div>
+        <h2 class="section admin-only">Log Fuel Entry</h2>
+        <div class="card admin-only" style="margin-bottom:20px">
+          <div class="formgrid">
+            <div>
+              <label class="f" for="fVeh">Vehicle</label>
+              <select id="fVeh"></select>
+            </div>
+            <div>
+              <label class="f" for="fDate">Date</label>
+              <input type="date" id="fDate">
+            </div>
+            <div>
+              <label class="f" for="fPrevOdo">Previous odometer (km)</label>
+              <input type="number" id="fPrevOdo" placeholder="auto" step="0.1">
+            </div>
+            <div>
+              <label class="f" for="fOdo">Current odometer (km)</label>
+              <input type="number" id="fOdo" placeholder="e.g. 46425" step="0.1">
+            </div>
+            <div>
+              <label class="f" for="fLit">Fuel inserted (L)</label>
+              <input type="number" id="fLit" placeholder="e.g. 38.5" step="0.01">
+            </div>
+            <div>
+              <label class="f" for="fCost">Fuel cost (total)</label>
+              <input type="number" id="fCost" placeholder="optional" step="0.01">
+            </div>
+          </div>
+          <div class="muted" id="fPreview" style="margin-bottom:12px"></div>
+          <button class="btn green" id="btnSaveFuel">Save Fuel Entry</button>
+        </div>
+        
+        <div class="toolbar">
+          <label class="f" style="margin:0" for="fFilter">Filter:</label>
+          <select id="fFilter" style="width:auto">
+            <option value="">All vehicles</option>
+          </select>
+        </div>
+        
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Vehicle</th>
+                <th>Prev Odo</th>
+                <th>Curr Odo</th>
+                <th>km</th>
+                <th>Litres</th>
+                <th>km/L</th>
+                <th>Cost</th>
+                <th>Rate/L</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="fuelBody"></tbody>
+          </table>
+          <div class="empty" id="fuelEmpty">No fuel entries logged yet.</div>
+        </div>
+      </section>
+
+      <!-- REPAIRS & MAINTENANCE VIEW -->
+      <section class="view" id="maintenance">
+        <div id="maintViewNote"></div>
+        <h2 class="section admin-only">Log Repair / Maintenance</h2>
+        <div class="card admin-only" style="margin-bottom:20px">
+          <div class="formgrid">
+            <div>
+              <label class="f" for="mVeh">Vehicle</label>
+              <select id="mVeh"></select>
+            </div>
+            <div>
+              <label class="f" for="mDate">Date</label>
+              <input type="date" id="mDate">
+            </div>
+            <div>
+              <label class="f" for="mCat">Category</label>
+              <select id="mCat">
+                <option>Major Repair</option>
+                <option>Routine Service</option>
+                <option>Tyre</option>
+                <option>Engine</option>
+                <option>Electrical</option>
+                <option>Bodywork</option>
+                <option>Brakes</option>
+                <option>Insurance / Tax</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div>
+              <label class="f" for="mCost">Cost</label>
+              <input type="number" id="mCost" placeholder="e.g. 15000" step="0.01">
+            </div>
+            <div>
+              <label class="f" for="mOdo">Odometer (km)</label>
+              <input type="number" id="mOdo" placeholder="optional" step="0.1">
+            </div>
+            <div>
+              <label class="f" for="mVendor">Workshop / Vendor</label>
+              <input type="text" id="mVendor" placeholder="optional">
+            </div>
+          </div>
+          <div style="margin-bottom:12px">
+            <label class="f" for="mDesc">Description / parts replaced</label>
+            <textarea id="mDesc" rows="2" placeholder="What was done"></textarea>
+          </div>
+          <div class="formgrid">
+            <div>
+              <label class="f" for="mNextDate">Next service due (date)</label>
+              <input type="date" id="mNextDate">
+            </div>
+            <div>
+              <label class="f" for="mNextKm">Next service due (km)</label>
+              <input type="number" id="mNextKm" placeholder="optional">
+            </div>
+          </div>
+          <button class="btn green" id="btnSaveMaint">Save Record</button>
+        </div>
+
+        <div class="toolbar">
+          <label class="f" style="margin:0" for="mFilter">Filter:</label>
+          <select id="mFilter" style="width:auto">
+            <option value="">All vehicles</option>
+          </select>
+        </div>
+
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Vehicle</th>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Vendor</th>
+                <th>Cost</th>
+                <th>Next Due</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="maintBody"></tbody>
+          </table>
+          <div class="empty" id="maintEmpty">No maintenance records yet.</div>
+        </div>
+      </section>
+
+      <!-- REPORTS VIEW -->
+      <section class="view" id="reports">
+        <div class="card" style="margin-bottom:20px">
+          <h2 class="section" style="margin-bottom:14px">Monthly Excel Report</h2>
+          <div class="formgrid" style="margin-bottom:0">
+            <div>
+              <label class="f" for="xlMonth">Month</label>
+              <input type="month" id="xlMonth">
+            </div>
+            <div>
+              <label class="f" for="xlVeh">Vehicle</label>
+              <select id="xlVeh">
+                <option value="">All vehicles</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:flex-end">
+              <button class="btn green" style="width:100%" id="btnExportMonthExcel">⤓ Download Excel (.xlsx)</button>
+            </div>
+            <div style="display:flex;align-items:flex-end">
+              <button class="btn ghost" style="width:100%" id="btnExportAllExcel">⤓ Full workbook (all data)</button>
+            </div>
+          </div>
+          <div class="muted" style="margin-top:10px">Excel includes: summary, fuel & mileage log, and repair/maintenance log for the selected month.</div>
+        </div>
+
+        <h2 class="section">Per-Vehicle Report</h2>
+        <div class="toolbar">
+          <select id="rVeh" style="width:auto"></select>
+          <div class="spacer"></div>
+          <button class="btn ghost sm" id="btnPrintReport">🖶 Print</button>
+        </div>
+        <div id="reportArea"></div>
+      </section>
+    </main>
+
+    <!-- VEHICLE DIALOG -->
+    <dialog id="vehDlg">
+      <div class="dlg-head">
+        <span id="vehDlgTitle">Add Vehicle</span>
+        <button class="x" id="btnCloseVehDlg">×</button>
+      </div>
+      <div class="dlg-body">
+        <input type="hidden" id="vId">
+        <div class="formgrid">
+          <div>
+            <label class="f" for="vNo">Vehicle No.*</label>
+            <input id="vNo" placeholder="e.g. BA 2 KHA 1234">
+          </div>
+          <div>
+            <label class="f" for="vType">Type</label>
+            <select id="vType">
+              <option>Car</option>
+              <option>SUV / Jeep</option>
+              <option>Pickup</option>
+              <option>Van</option>
+              <option>Truck</option>
+              <option>Motorcycle</option>
+              <option>Bus</option>
+            </select>
+          </div>
+          <div>
+            <label class="f" for="vModel">Make / Model</label>
+            <input id="vModel" placeholder="e.g. Toyota Hilux">
+          </div>
+          <div>
+            <label class="f" for="vFuel">Fuel Type</label>
+            <select id="vFuel">
+              <option>Diesel</option>
+              <option>Petrol</option>
+              <option>CNG</option>
+              <option>Electric</option>
+            </select>
+          </div>
+          <div>
+            <label class="f" for="vDriver">Assigned Driver</label>
+            <input id="vDriver" placeholder="optional">
+          </div>
+          <div>
+            <label class="f" for="vYear">Year</label>
+            <input id="vYear" placeholder="optional">
+          </div>
+        </div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn ghost" id="btnCancelVehDlg">Cancel</button>
+        <button class="btn" id="btnSaveVehicle">Save</button>
+      </div>
+    </dialog>
+
+    <!-- PASSWORD CHANGE DIALOG -->
+    <dialog id="passDlg">
+      <div class="dlg-head">
+        <span>Update Password</span>
+        <button class="x" id="btnClosePassDlg">×</button>
+      </div>
+      <div class="dlg-body">
+        <div style="margin-bottom:12px">
+          <label class="f" for="newPass">New Password</label>
+          <input id="newPass" type="password" placeholder="At least 6 characters">
+        </div>
+        <div>
+          <label class="f" for="confirmPass">Confirm Password</label>
+          <input id="confirmPass" type="password" placeholder="Re-enter password">
+        </div>
+        <div class="loginerr" id="passErr" style="margin-top: 10px;"></div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn ghost" id="btnCancelPassDlg">Cancel</button>
+        <button class="btn" id="btnConfirmChangePass">Update</button>
+      </div>
+    </dialog>
+
+  </div><!-- /#app -->
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
