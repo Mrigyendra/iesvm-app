@@ -14,6 +14,7 @@ const store = {
   fuel: [],
   maint: [],
   accounts: [], // Admin only: user profiles list
+  activityLogs: [], // Admin only: activity log audit list
   user: null,
   role: 'staff' // defaults to read-only staff
 };
@@ -238,6 +239,7 @@ async function fetchAllData() {
 
     if (store.role === 'admin') {
       await fetchAccounts();
+      await fetchActivityLogs();
     }
     renderAll();
   } catch (err) {
@@ -268,6 +270,9 @@ function setupControls() {
     document.getElementById('vModel').value = '';
     document.getElementById('vDriver').value = '';
     document.getElementById('vYear').value = '';
+    document.getElementById('vInsuranceExpiry').value = '';
+    document.getElementById('vPucExpiry').value = '';
+    document.getElementById('vFitnessExpiry').value = '';
     document.getElementById('vType').value = 'Car';
     document.getElementById('vFuel').value = 'Diesel';
     document.getElementById('vehDlgTitle').textContent = 'Add Vehicle';
@@ -328,6 +333,12 @@ function setupControls() {
     document.getElementById('btnCloseAdminPassDlg').addEventListener('click', () => adminPassDlg.close());
     document.getElementById('btnCancelAdminPassDlg').addEventListener('click', () => adminPassDlg.close());
     document.getElementById('btnConfirmAdminChangePass').addEventListener('click', resetUserPassword);
+  }
+
+  // Activity Log Filter
+  const activityFilter = document.getElementById('activityFilter');
+  if (activityFilter) {
+    activityFilter.addEventListener('change', renderActivityLogs);
   }
 }
 
@@ -418,6 +429,9 @@ async function saveVehicle() {
   const vYearVal = document.getElementById('vYear').value.trim();
   const vTypeVal = document.getElementById('vType').value;
   const vFuelVal = document.getElementById('vFuel').value;
+  const vInsVal = document.getElementById('vInsuranceExpiry').value || null;
+  const vPucVal = document.getElementById('vPucExpiry').value || null;
+  const vFitVal = document.getElementById('vFitnessExpiry').value || null;
 
   if (!vNoVal) {
     alert('Vehicle number is required');
@@ -430,7 +444,10 @@ async function saveVehicle() {
     driver: vDriverVal,
     year: vYearVal,
     type: vTypeVal,
-    fuel: vFuelVal
+    fuel: vFuelVal,
+    insurance_expiry: vInsVal,
+    puc_expiry: vPucVal,
+    fitness_expiry: vFitVal
   };
 
   try {
@@ -441,12 +458,16 @@ async function saveVehicle() {
         .update(payload)
         .eq('id', idVal);
       if (error) throw error;
+      logActivity('updated', 'vehicles', idVal, `Updated vehicle: ${vNoVal}`);
     } else {
       // Insert
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('vehicles')
-        .insert([payload]);
+        .insert([payload])
+        .select();
       if (error) throw error;
+      const newId = data?.[0]?.id;
+      logActivity('created', 'vehicles', newId, `Created vehicle: ${vNoVal}`);
     }
     
     document.getElementById('vehDlg').close();
@@ -460,6 +481,7 @@ async function saveVehicle() {
 window.delVehicle = async function(id) {
   if (!requireAdmin()) return;
   if (!confirm('Are you sure you want to delete this vehicle? ALL fuel logs and maintenance records will be deleted as well.')) return;
+  const vNo = vName(id);
 
   try {
     const { error } = await supabase
@@ -467,6 +489,7 @@ window.delVehicle = async function(id) {
       .delete()
       .eq('id', id);
     if (error) throw error;
+    logActivity('deleted', 'vehicles', id, `Deleted vehicle: ${vNo}`);
     await fetchAllData();
   } catch (err) {
     alert('Error deleting vehicle: ' + err.message);
@@ -483,6 +506,9 @@ window.openVehicle = function(id) {
   document.getElementById('vModel').value = v.model || '';
   document.getElementById('vDriver').value = v.driver || '';
   document.getElementById('vYear').value = v.year || '';
+  document.getElementById('vInsuranceExpiry').value = v.insurance_expiry || '';
+  document.getElementById('vPucExpiry').value = v.puc_expiry || '';
+  document.getElementById('vFitnessExpiry').value = v.fitness_expiry || '';
   document.getElementById('vType').value = v.type || 'Car';
   document.getElementById('vFuel').value = v.fuel || 'Diesel';
   document.getElementById('vehDlgTitle').textContent = 'Edit Vehicle';
@@ -610,10 +636,13 @@ async function addFuel() {
   };
 
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('fuel')
-      .insert([payload]);
+      .insert([payload])
+      .select();
     if (error) throw error;
+    const newId = data?.[0]?.id;
+    logActivity('created', 'fuel', newId, `Logged fuel entry: ${vName(veh)} (${cur - prev} km, ${lit} L)`);
 
     // Reset inputs
     document.getElementById('fOdo').value = '';
@@ -632,6 +661,8 @@ async function addFuel() {
 window.delFuel = async function(id) {
   if (!requireAdmin()) return;
   if (!confirm('Are you sure you want to delete this fuel record?')) return;
+  const row = store.fuel.find(x => x.id === id);
+  const vehName = row ? vName(row.veh) : 'Unknown';
 
   try {
     const { error } = await supabase
@@ -639,6 +670,7 @@ window.delFuel = async function(id) {
       .delete()
       .eq('id', id);
     if (error) throw error;
+    logActivity('deleted', 'fuel', id, `Deleted fuel entry for ${vehName}`);
     await fetchAllData();
   } catch (err) {
     alert('Error deleting fuel log: ' + err.message);
@@ -707,10 +739,13 @@ async function addMaint() {
   };
 
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('maint')
-      .insert([payload]);
+      .insert([payload])
+      .select();
     if (error) throw error;
+    const newId = data?.[0]?.id;
+    logActivity('created', 'maint', newId, `Logged maintenance: ${vName(veh)} - ${cat} (${money(cost)})`);
 
     // Reset fields
     document.getElementById('mCost').value = '';
@@ -729,6 +764,8 @@ async function addMaint() {
 window.delMaint = async function(id) {
   if (!requireAdmin()) return;
   if (!confirm('Are you sure you want to delete this maintenance record?')) return;
+  const row = store.maint.find(x => x.id === id);
+  const vehName = row ? vName(row.veh) : 'Unknown';
 
   try {
     const { error } = await supabase
@@ -736,6 +773,7 @@ window.delMaint = async function(id) {
       .delete()
       .eq('id', id);
     if (error) throw error;
+    logActivity('deleted', 'maint', id, `Deleted maintenance record for ${vehName}`);
     await fetchAllData();
   } catch (err) {
     alert('Error deleting maintenance record: ' + err.message);
@@ -824,6 +862,8 @@ function renderStats() {
   document.getElementById('dashAlerts').innerHTML = alerts.length 
     ? alerts.map(a => `<div class="alertbar">⚠ ${a}</div>`).join('') 
     : '';
+
+  renderExpiryWidget();
 }
 
 function mkChart(id, cfg) {
@@ -1309,6 +1349,10 @@ function renderAll() {
   if (document.getElementById('accounts') && document.getElementById('accounts').classList.contains('active')) {
     renderAccounts();
   }
+
+  if (document.getElementById('activity') && document.getElementById('activity').classList.contains('active')) {
+    renderActivityLogs();
+  }
 }
 
 // ================= ADMIN USER MANAGEMENT OPERATIONS =================
@@ -1437,4 +1481,140 @@ async function resetUserPassword() {
   } finally {
     btn.disabled = false;
   }
+}
+
+// ================= ACTIVITY LOG & DOCUMENT EXPIRY AUDIT OPERATIONS =================
+
+async function logActivity(action, tableName, recordId, details) {
+  if (!store.user) return;
+  try {
+    const payload = {
+      user_id: store.user.id,
+      user_email: store.user.email,
+      action,
+      table_name: tableName,
+      record_id: recordId,
+      details
+    };
+    await supabase.from('activity_log').insert([payload]);
+  } catch (err) {
+    console.warn('Failed to record activity log:', err.message);
+  }
+}
+
+async function fetchActivityLogs() {
+  if (store.role !== 'admin') return;
+  try {
+    const { data, error } = await supabase
+      .from('activity_log')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) throw error;
+    store.activityLogs = data || [];
+    renderActivityLogs();
+  } catch (err) {
+    console.error('Error fetching activity log:', err.message);
+  }
+}
+
+function renderActivityLogs() {
+  const b = document.getElementById('activityBody');
+  if (!b) return;
+  b.innerHTML = '';
+  
+  const filt = document.getElementById('activityFilter').value;
+  const rows = store.activityLogs.filter(x => !filt || x.action === filt);
+  
+  document.getElementById('activityEmpty').style.display = rows.length ? 'none' : 'block';
+  
+  rows.forEach(r => {
+    const ts = new Date(r.created_at).toLocaleString();
+    let actionClass = 'pill';
+    if (r.action === 'created') actionClass += ' ok';
+    else if (r.action === 'updated') actionClass += ' warn';
+    else if (r.action === 'deleted') actionClass += ' bad';
+    
+    b.insertAdjacentHTML('beforeend', `<tr>
+      <td style="white-space:nowrap">${ts}</td>
+      <td>${r.user_email}</td>
+      <td><span class="${actionClass}">${r.action}</span></td>
+      <td><code>${r.table_name}</code></td>
+      <td>${r.details || '—'}</td>
+    </tr>`);
+  });
+}
+
+function renderExpiryWidget() {
+  const container = document.getElementById('dashExpiry');
+  if (!container) return;
+  container.innerHTML = '';
+  
+  const alerts = [];
+  const todayStr = today();
+  const todayMs = new Date(todayStr).getTime();
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+  
+  store.vehicles.forEach(v => {
+    const docs = [
+      { label: 'Insurance', val: v.insurance_expiry },
+      { label: 'PUC Certificate', val: v.puc_expiry },
+      { label: 'Fitness / Permit', val: v.fitness_expiry }
+    ];
+    
+    docs.forEach(d => {
+      if (d.val) {
+        const expMs = new Date(d.val).getTime();
+        const diff = expMs - todayMs;
+        
+        if (diff < 0) {
+          alerts.push({
+            vehNo: v.no,
+            docLabel: d.label,
+            date: d.val,
+            status: 'expired',
+            badge: '<span class="pill bad">Expired</span>'
+          });
+        } else if (diff <= thirtyDaysMs) {
+          alerts.push({
+            vehNo: v.no,
+            docLabel: d.label,
+            date: d.val,
+            status: 'due',
+            badge: '<span class="pill warn">Due Soon</span>'
+          });
+        }
+      }
+    });
+  });
+  
+  if (alerts.length === 0) {
+    container.innerHTML = `
+      <div class="expiry-success">
+        <span>✓ All vehicle documents (Insurance, PUC, Fitness) are up to date.</span>
+      </div>
+    `;
+    return;
+  }
+  
+  // Sort expired first, then by date ascending
+  alerts.sort((a, b) => {
+    if (a.status === 'expired' && b.status !== 'expired') return -1;
+    if (a.status !== 'expired' && b.status === 'expired') return 1;
+    return a.date.localeCompare(b.date);
+  });
+  
+  let html = '<div class="expiry-container">';
+  alerts.forEach(a => {
+    html += `
+      <div class="expiry-item">
+        <span class="veh">${a.vehNo}</span>
+        <span class="doc">${a.docLabel} is expiring</span>
+        <span class="date">${a.date}</span>
+        ${a.badge}
+      </div>
+    `;
+  });
+  html += '</div>';
+  container.innerHTML = html;
 }

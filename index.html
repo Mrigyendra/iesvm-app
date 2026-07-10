@@ -80,6 +80,7 @@
       <button data-view="maintenance">Repairs & Maintenance</button>
       <button data-view="reports">Reports</button>
       <button data-view="accounts" class="admin-only">Manage Accounts</button>
+      <button data-view="activity" class="admin-only">Activity Log</button>
     </nav>
 
     <main>
@@ -87,6 +88,7 @@
       <section class="view active" id="dashboard">
         <h2 class="section">Fleet Overview</h2>
         <div id="dashAlerts"></div>
+        <div id="dashExpiry"></div>
         <div class="grid stat" id="dashStats"></div>
         <div style="height:24px"></div>
         <div class="row2">
@@ -340,6 +342,35 @@
           </table>
         </div>
       </section>
+
+      <!-- ACTIVITY VIEW (ADMIN ONLY) -->
+      <section class="view" id="activity">
+        <div class="toolbar">
+          <h2 class="section" style="margin:0">Activity Log</h2>
+          <div class="spacer"></div>
+          <select id="activityFilter" style="width:auto; padding: 6px 12px; border-radius: var(--radius-sm);">
+            <option value="">All Actions</option>
+            <option value="created">Created</option>
+            <option value="updated">Updated</option>
+            <option value="deleted">Deleted</option>
+          </select>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>User</th>
+                <th>Action</th>
+                <th>Table</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="activityBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="activityEmpty" style="display:none">No activity recorded yet.</div>
+      </section>
     </main>
 
     <!-- VEHICLE DIALOG -->
@@ -387,6 +418,18 @@
           <div>
             <label class="f" for="vYear">Year</label>
             <input id="vYear" placeholder="optional">
+          </div>
+          <div>
+            <label class="f" for="vInsuranceExpiry">Insurance Expiry</label>
+            <input id="vInsuranceExpiry" type="date">
+          </div>
+          <div>
+            <label class="f" for="vPucExpiry">PUC Expiry</label>
+            <input id="vPucExpiry" type="date">
+          </div>
+          <div>
+            <label class="f" for="vFitnessExpiry">Fitness / Permit Expiry</label>
+            <input id="vFitnessExpiry" type="date">
           </div>
         </div>
       </div>

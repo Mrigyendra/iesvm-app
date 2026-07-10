@@ -807,6 +807,56 @@ body.role-staff .admin-only {
   display: none !important;
 }
 
+/* Document Expiry Widget */
+.expiry-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.expiry-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.expiry-item .veh {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.expiry-item .doc {
+  color: var(--sub);
+  flex: 1;
+}
+
+.expiry-item .date {
+  font-weight: 600;
+}
+
+.expiry-success {
+  background: var(--green-soft);
+  border: 1px solid rgba(37, 106, 75, 0.15);
+  color: #174f35;
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
 /* Print View overrides */
 @media print {
   body {
