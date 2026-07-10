@@ -79,6 +79,7 @@
       <button data-view="fuel">Fuel & Mileage</button>
       <button data-view="maintenance">Repairs & Maintenance</button>
       <button data-view="reports">Reports</button>
+      <button data-view="accounts" class="admin-only">Manage Accounts</button>
     </nav>
 
     <main>
@@ -320,6 +321,25 @@
         </div>
         <div id="reportArea"></div>
       </section>
+
+      <!-- ACCOUNTS VIEW (ADMIN ONLY) -->
+      <section class="view" id="accounts">
+        <div class="toolbar">
+          <h2 class="section" style="margin:0">Manage User Accounts</h2>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Email Address</th>
+                <th>Role</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="accountsBody"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
 
     <!-- VEHICLE DIALOG -->
@@ -396,6 +416,30 @@
       <div class="dlg-foot">
         <button class="btn ghost" id="btnCancelPassDlg">Cancel</button>
         <button class="btn" id="btnConfirmChangePass">Update</button>
+      </div>
+    </dialog>
+
+    <!-- ADMIN PASSWORD RESET DIALOG -->
+    <dialog id="adminPassDlg">
+      <div class="dlg-head">
+        <span>Reset User Password</span>
+        <button class="x" id="btnCloseAdminPassDlg">×</button>
+      </div>
+      <div class="dlg-body">
+        <input type="hidden" id="resetUserId">
+        <div style="margin-bottom:12px">
+          <label class="f" for="resetUserEmail">User Email</label>
+          <input id="resetUserEmail" type="text" readonly style="background:#eee">
+        </div>
+        <div style="margin-bottom:12px">
+          <label class="f" for="adminNewPass">New Password</label>
+          <input id="adminNewPass" type="password" placeholder="At least 6 characters">
+        </div>
+        <div class="loginerr" id="adminPassErr"></div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn ghost" id="btnCancelAdminPassDlg">Cancel</button>
+        <button class="btn" id="btnConfirmAdminChangePass">Reset Password</button>
       </div>
     </dialog>
 

@@ -13,6 +13,7 @@ const store = {
   vehicles: [],
   fuel: [],
   maint: [],
+  accounts: [], // Admin only: user profiles list
   user: null,
   role: 'staff' // defaults to read-only staff
 };
@@ -235,6 +236,9 @@ async function fetchAllData() {
       nextKm: r.next_km ? Number(r.next_km) : null
     }));
 
+    if (store.role === 'admin') {
+      await fetchAccounts();
+    }
     renderAll();
   } catch (err) {
     console.error('Error fetching database records:', err.message);
@@ -245,7 +249,7 @@ async function fetchAllData() {
 // Check admin role guard
 function requireAdmin() {
   if (store.role !== 'admin') {
-    alert('Read-only: Supervisor accounts cannot change records.');
+    alert('Access denied: Staff accounts cannot edit or delete records.');
     return false;
   }
   return true;
@@ -317,6 +321,14 @@ function setupControls() {
     const { error } = await supabase.auth.signOut();
     if (error) alert('Error logging out: ' + error.message);
   });
+
+  // Admin Password Reset Modal Action
+  const adminPassDlg = document.getElementById('adminPassDlg');
+  if (adminPassDlg) {
+    document.getElementById('btnCloseAdminPassDlg').addEventListener('click', () => adminPassDlg.close());
+    document.getElementById('btnCancelAdminPassDlg').addEventListener('click', () => adminPassDlg.close());
+    document.getElementById('btnConfirmAdminChangePass').addEventListener('click', resetUserPassword);
+  }
 }
 
 // Authentication Submit
@@ -391,14 +403,21 @@ async function changePassword() {
 // ---- Vehicles Section Operations ----
 
 async function saveVehicle() {
-  if (!requireAdmin()) return;
+  const idVal = document.getElementById('vId').value;
+  if (idVal) {
+    if (!requireAdmin()) return;
+  } else {
+    if (store.role !== 'admin' && store.role !== 'staff') {
+      alert('Access denied: Unauthorized role.');
+      return;
+    }
+  }
   const vNoVal = document.getElementById('vNo').value.trim();
   const vModelVal = document.getElementById('vModel').value.trim();
   const vDriverVal = document.getElementById('vDriver').value.trim();
   const vYearVal = document.getElementById('vYear').value.trim();
   const vTypeVal = document.getElementById('vType').value;
   const vFuelVal = document.getElementById('vFuel').value;
-  const idVal = document.getElementById('vId').value;
 
   if (!vNoVal) {
     alert('Vehicle number is required');
@@ -546,7 +565,10 @@ function fuelPreview() {
 }
 
 async function addFuel() {
-  if (!requireAdmin()) return;
+  if (store.role !== 'admin' && store.role !== 'staff') {
+    alert('Access denied: Unauthorized role.');
+    return;
+  }
   const veh = document.getElementById('fVeh').value;
   const date = document.getElementById('fDate').value || today();
   const cur = Number(document.getElementById('fOdo').value);
@@ -649,7 +671,10 @@ function renderFuel() {
 // ---- Maintenance Section Operations ----
 
 async function addMaint() {
-  if (!requireAdmin()) return;
+  if (store.role !== 'admin' && store.role !== 'staff') {
+    alert('Access denied: Unauthorized role.');
+    return;
+  }
   const veh = document.getElementById('mVeh').value;
   const date = document.getElementById('mDate').value || today();
   const cat = document.getElementById('mCat').value;
@@ -1279,5 +1304,137 @@ function renderAll() {
 
   if (document.getElementById('reports').classList.contains('active')) {
     renderReport();
+  }
+
+  if (document.getElementById('accounts') && document.getElementById('accounts').classList.contains('active')) {
+    renderAccounts();
+  }
+}
+
+// ================= ADMIN USER MANAGEMENT OPERATIONS =================
+
+async function fetchAccounts() {
+  if (store.role !== 'admin') return;
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('email');
+    if (error) throw error;
+    store.accounts = data || [];
+    renderAccounts();
+  } catch (err) {
+    console.error('Error fetching profiles:', err.message);
+  }
+}
+
+function renderAccounts() {
+  const b = document.getElementById('accountsBody');
+  if (!b) return;
+  b.innerHTML = '';
+  
+  store.accounts.forEach(a => {
+    const isSelf = a.id === store.user.id;
+    const roleSelect = isSelf 
+      ? `<span class="rolebadge ${a.role}">${a.role}</span>`
+      : `<select class="role-select" data-id="${a.id}" style="width:auto; padding: 5px 10px; border-radius: var(--radius-sm);">
+           <option value="staff" ${a.role === 'staff' ? 'selected' : ''}>Staff</option>
+           <option value="admin" ${a.role === 'admin' ? 'selected' : ''}>Admin</option>
+         </select>`;
+         
+    const deleteBtn = isSelf 
+      ? `<span class="muted">(Current Account)</span>`
+      : `<button class="btn danger sm" onclick="deleteAccount('${a.id}')">Delete</button>`;
+      
+    const passBtn = isSelf 
+      ? '' 
+      : `<button class="btn ghost sm" onclick="openResetPassDlg('${a.id}', '${a.email}')">Reset Password</button>`;
+
+    b.insertAdjacentHTML('beforeend', `<tr>
+      <td><b>${a.email}</b></td>
+      <td>${roleSelect}</td>
+      <td>
+        <div style="display:flex; gap:8px; align-items:center;">
+          ${passBtn}
+          ${deleteBtn}
+        </div>
+      </td>
+    </tr>`);
+  });
+
+  // Bind change event to role selectors
+  document.querySelectorAll('.role-select').forEach(sel => {
+    sel.addEventListener('change', async (e) => {
+      const userId = e.target.dataset.id;
+      const newRole = e.target.value;
+      if (!confirm(`Are you sure you want to change this user's role to ${newRole.toUpperCase()}?`)) {
+        e.target.value = newRole === 'admin' ? 'staff' : 'admin'; // revert
+        return;
+      }
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ role: newRole })
+          .eq('id', userId);
+        if (error) throw error;
+        alert('User role updated successfully!');
+        await fetchAccounts();
+      } catch (err) {
+        alert('Failed to update role: ' + err.message);
+        await fetchAccounts(); // reload to sync
+      }
+    });
+  });
+}
+
+window.deleteAccount = async function(id) {
+  if (!requireAdmin()) return;
+  if (!confirm('Are you sure you want to permanently delete this account? They will lose access immediately.')) return;
+  try {
+    const { error } = await supabase.rpc('admin_delete_user', { target_user_id: id });
+    if (error) throw error;
+    alert('User account deleted successfully!');
+    await fetchAccounts();
+  } catch (err) {
+    alert('Failed to delete account: ' + err.message);
+  }
+};
+
+window.openResetPassDlg = function(id, email) {
+  if (!requireAdmin()) return;
+  document.getElementById('resetUserId').value = id;
+  document.getElementById('resetUserEmail').value = email;
+  document.getElementById('adminNewPass').value = '';
+  document.getElementById('adminPassErr').textContent = '';
+  document.getElementById('adminPassDlg').showModal();
+};
+
+async function resetUserPassword() {
+  if (!requireAdmin()) return;
+  const id = document.getElementById('resetUserId').value;
+  const newPass = document.getElementById('adminNewPass').value;
+  const errDiv = document.getElementById('adminPassErr');
+  errDiv.textContent = '';
+
+  if (newPass.length < 6) {
+    errDiv.textContent = 'Password must be at least 6 characters.';
+    return;
+  }
+
+  const btn = document.getElementById('btnConfirmAdminChangePass');
+  btn.disabled = true;
+
+  try {
+    const { error } = await supabase.rpc('admin_update_password', { 
+      target_user_id: id, 
+      new_password: newPass 
+    });
+    if (error) throw error;
+    alert('User password updated successfully!');
+    document.getElementById('adminPassDlg').close();
+  } catch (err) {
+    errDiv.textContent = err.message;
+  } finally {
+    btn.disabled = false;
   }
 }
