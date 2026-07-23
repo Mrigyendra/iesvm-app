@@ -11,6 +11,7 @@ const money = n => CUR + (Number(n) || 0).toLocaleString('en-IN', { maximumFract
 // Application State Store
 const store = {
   vehicles: [],
+  drivers: [],
   fuel: [],
   maint: [],
   accounts: [], // Admin only: user profiles list
@@ -237,6 +238,7 @@ async function fetchAllData() {
       nextKm: r.next_km ? Number(r.next_km) : null
     }));
 
+    await fetchDrivers();
     if (store.role === 'admin') {
       await fetchAccounts();
       await fetchActivityLogs();
@@ -339,6 +341,31 @@ function setupControls() {
   const activityFilter = document.getElementById('activityFilter');
   if (activityFilter) {
     activityFilter.addEventListener('change', renderActivityLogs);
+  }
+
+  const staffUserFilter = document.getElementById('staffUserFilter');
+  if (staffUserFilter) {
+    staffUserFilter.addEventListener('change', renderActivityLogs);
+  }
+
+  // Driver Dialog Action
+  const driverDlg = document.getElementById('driverDlg');
+  if (driverDlg) {
+    document.getElementById('btnAddDriver').addEventListener('click', () => {
+      if (store.role !== 'admin' && store.role !== 'staff') return;
+      document.getElementById('drId').value = '';
+      document.getElementById('drName').value = '';
+      document.getElementById('drPhone').value = '';
+      document.getElementById('drLicenseNo').value = '';
+      document.getElementById('drLicenseExpiry').value = '';
+      document.getElementById('drVehicle').value = '';
+      document.getElementById('drStatus').value = 'active';
+      document.getElementById('driverDlgTitle').textContent = 'Add Driver';
+      driverDlg.showModal();
+    });
+    document.getElementById('btnCloseDriverDlg').addEventListener('click', () => driverDlg.close());
+    document.getElementById('btnCancelDriverDlg').addEventListener('click', () => driverDlg.close());
+    document.getElementById('btnSaveDriver').addEventListener('click', saveDriver);
   }
 }
 
@@ -819,6 +846,13 @@ function fillSelectors() {
   document.getElementById('mFilter').innerHTML = fo;
   document.getElementById('fFilter').value = keepF;
   document.getElementById('mFilter').value = keepM;
+
+  const drVehEl = document.getElementById('drVehicle');
+  if (drVehEl) {
+    const keepDr = drVehEl.value;
+    drVehEl.innerHTML = '<option value="">None (Unassigned)</option>' + opts;
+    drVehEl.value = keepDr;
+  }
 
   if (!document.getElementById('fDate').value) document.getElementById('fDate').value = today();
   if (!document.getElementById('mDate').value) document.getElementById('mDate').value = today();
@@ -1346,11 +1380,16 @@ function renderAll() {
     renderReport();
   }
 
+  if (document.getElementById('drivers') && document.getElementById('drivers').classList.contains('active')) {
+    renderDrivers();
+  }
+
   if (document.getElementById('accounts') && document.getElementById('accounts').classList.contains('active')) {
     renderAccounts();
   }
 
   if (document.getElementById('activity') && document.getElementById('activity').classList.contains('active')) {
+    renderStaffSummary();
     renderActivityLogs();
   }
 }
@@ -1491,6 +1530,7 @@ async function logActivity(action, tableName, recordId, details) {
     const payload = {
       user_id: store.user.id,
       user_email: store.user.email,
+      user_role: store.role,
       action,
       table_name: tableName,
       record_id: recordId,
@@ -1523,8 +1563,14 @@ function renderActivityLogs() {
   if (!b) return;
   b.innerHTML = '';
   
-  const filt = document.getElementById('activityFilter').value;
-  const rows = store.activityLogs.filter(x => !filt || x.action === filt);
+  const filt = document.getElementById('activityFilter') ? document.getElementById('activityFilter').value : '';
+  const userFilt = document.getElementById('staffUserFilter') ? document.getElementById('staffUserFilter').value : '';
+
+  const rows = store.activityLogs.filter(x => {
+    if (filt && x.action !== filt) return false;
+    if (userFilt && x.user_email !== userFilt) return false;
+    return true;
+  });
   
   document.getElementById('activityEmpty').style.display = rows.length ? 'none' : 'block';
   
@@ -1535,9 +1581,12 @@ function renderActivityLogs() {
     else if (r.action === 'updated') actionClass += ' warn';
     else if (r.action === 'deleted') actionClass += ' bad';
     
+    let roleBadge = r.user_role ? `<span class="rolebadge ${r.user_role}" style="font-size:10px; padding:2px 6px;">${r.user_role}</span>` : '—';
+
     b.insertAdjacentHTML('beforeend', `<tr>
       <td style="white-space:nowrap">${ts}</td>
       <td>${r.user_email}</td>
+      <td>${roleBadge}</td>
       <td><span class="${actionClass}">${r.action}</span></td>
       <td><code>${r.table_name}</code></td>
       <td>${r.details || '—'}</td>
@@ -1587,11 +1636,35 @@ function renderExpiryWidget() {
       }
     });
   });
+
+  store.drivers.forEach(d => {
+    if (d.license_expiry && d.status === 'active') {
+      const expMs = new Date(d.license_expiry).getTime();
+      const diff = expMs - todayMs;
+      if (diff < 0) {
+        alerts.push({
+          vehNo: `Driver: ${d.name}`,
+          docLabel: 'Driving License',
+          date: d.license_expiry,
+          status: 'expired',
+          badge: '<span class="pill bad">Expired</span>'
+        });
+      } else if (diff <= thirtyDaysMs) {
+        alerts.push({
+          vehNo: `Driver: ${d.name}`,
+          docLabel: 'Driving License',
+          date: d.license_expiry,
+          status: 'due',
+          badge: '<span class="pill warn">Due Soon</span>'
+        });
+      }
+    }
+  });
   
   if (alerts.length === 0) {
     container.innerHTML = `
       <div class="expiry-success">
-        <span>✓ All vehicle documents (Insurance, PUC, Fitness) are up to date.</span>
+        <span>✓ All vehicle documents & driver licenses are up to date.</span>
       </div>
     `;
     return;
@@ -1617,4 +1690,190 @@ function renderExpiryWidget() {
   });
   html += '</div>';
   container.innerHTML = html;
+}
+
+// ================= DRIVERS OPERATIONS =================
+
+async function fetchDrivers() {
+  try {
+    const { data, error } = await supabase
+      .from('drivers')
+      .select('*')
+      .order('name');
+    if (error) throw error;
+    store.drivers = data || [];
+    renderDrivers();
+  } catch (err) {
+    console.error('Error fetching drivers:', err.message);
+  }
+}
+
+function renderDrivers() {
+  const b = document.getElementById('driversBody');
+  if (!b) return;
+  b.innerHTML = '';
+  document.getElementById('driversEmpty').style.display = store.drivers.length ? 'none' : 'block';
+
+  store.drivers.forEach(d => {
+    const vehName = d.assigned_vehicle_id ? vName(d.assigned_vehicle_id) : 'Unassigned';
+    const statusPill = d.status === 'active' ? '<span class="pill ok">Active</span>' : '<span class="pill">Inactive</span>';
+
+    b.insertAdjacentHTML('beforeend', `<tr>
+      <td><b>${d.name}</b></td>
+      <td>${d.phone || '—'}</td>
+      <td><code>${d.license_number}</code></td>
+      <td>${d.license_expiry || '—'}</td>
+      <td><span class="vehchip">${vehName}</span></td>
+      <td>${statusPill}</td>
+      <td>
+        <button class="btn ghost sm" onclick="openDriver('${d.id}')">Edit</button>
+        <button class="btn danger sm admin-only" onclick="delDriver('${d.id}')">Del</button>
+      </td>
+    </tr>`);
+  });
+}
+
+async function saveDriver() {
+  const idVal = document.getElementById('drId').value;
+  if (idVal) {
+    if (store.role !== 'admin' && store.role !== 'staff') return;
+  }
+  const name = document.getElementById('drName').value.trim();
+  const phone = document.getElementById('drPhone').value.trim();
+  const licNo = document.getElementById('drLicenseNo').value.trim();
+  const licExp = document.getElementById('drLicenseExpiry').value || null;
+  const vehId = document.getElementById('drVehicle').value || null;
+  const status = document.getElementById('drStatus').value;
+
+  if (!name || !licNo) {
+    alert('Driver name and license number are required.');
+    return;
+  }
+
+  const payload = {
+    name,
+    phone,
+    license_number: licNo,
+    license_expiry: licExp,
+    assigned_vehicle_id: vehId,
+    status
+  };
+
+  try {
+    if (idVal) {
+      const { error } = await supabase.from('drivers').update(payload).eq('id', idVal);
+      if (error) throw error;
+      logActivity('updated', 'drivers', idVal, `Updated driver: ${name}`);
+    } else {
+      const { data, error } = await supabase.from('drivers').insert([payload]).select();
+      if (error) throw error;
+      const newId = data?.[0]?.id;
+      logActivity('created', 'drivers', newId, `Added driver: ${name}`);
+    }
+    document.getElementById('driverDlg').close();
+    await fetchAllData();
+  } catch (err) {
+    alert('Error saving driver record: ' + err.message);
+  }
+}
+
+window.openDriver = function(id) {
+  const d = store.drivers.find(x => x.id === id);
+  if (!d) return;
+
+  document.getElementById('drId').value = d.id;
+  document.getElementById('drName').value = d.name;
+  document.getElementById('drPhone').value = d.phone || '';
+  document.getElementById('drLicenseNo').value = d.license_number;
+  document.getElementById('drLicenseExpiry').value = d.license_expiry || '';
+  document.getElementById('drVehicle').value = d.assigned_vehicle_id || '';
+  document.getElementById('drStatus').value = d.status || 'active';
+  document.getElementById('driverDlgTitle').textContent = 'Edit Driver';
+  document.getElementById('driverDlg').showModal();
+};
+
+window.delDriver = async function(id) {
+  if (!requireAdmin()) return;
+  if (!confirm('Are you sure you want to delete this driver?')) return;
+  const d = store.drivers.find(x => x.id === id);
+  const dName = d ? d.name : 'Unknown';
+
+  try {
+    const { error } = await supabase.from('drivers').delete().eq('id', id);
+    if (error) throw error;
+    logActivity('deleted', 'drivers', id, `Deleted driver: ${dName}`);
+    await fetchAllData();
+  } catch (err) {
+    alert('Error deleting driver: ' + err.message);
+  }
+};
+
+// ================= STAFF DAILY ACCOUNTABILITY METRICS =================
+
+function renderStaffSummary() {
+  const grid = document.getElementById('staffSummaryGrid');
+  const userFilt = document.getElementById('staffUserFilter');
+  if (!grid) return;
+
+  const todayStr = today();
+  const staffMap = {};
+
+  // Initialize staffMap from store.accounts
+  store.accounts.forEach(acc => {
+    staffMap[acc.email] = {
+      email: acc.email,
+      role: acc.role,
+      entriesToday: 0,
+      totalEntries: 0,
+      lastActive: null
+    };
+  });
+
+  // Calculate metrics from store.activityLogs
+  store.activityLogs.forEach(log => {
+    const email = log.user_email;
+    if (!staffMap[email]) {
+      staffMap[email] = {
+        email,
+        role: log.user_role || 'staff',
+        entriesToday: 0,
+        totalEntries: 0,
+        lastActive: null
+      };
+    }
+    const s = staffMap[email];
+    s.totalEntries += 1;
+    if (log.created_at && log.created_at.startsWith(todayStr)) {
+      s.entriesToday += 1;
+    }
+    if (!s.lastActive || new Date(log.created_at) > new Date(s.lastActive)) {
+      s.lastActive = log.created_at;
+    }
+  });
+
+  // Update staff filter dropdown options
+  if (userFilt) {
+    const curVal = userFilt.value;
+    const staffEmails = Object.keys(staffMap).sort();
+    userFilt.innerHTML = '<option value="">All Staff Members</option>' + staffEmails.map(e => `<option value="${e}">${e}</option>`).join('');
+    userFilt.value = curVal;
+  }
+
+  // Render cards
+  const cardsHtml = Object.values(staffMap).map(s => {
+    const isActiveToday = s.entriesToday > 0;
+    const lastActiveText = s.lastActive ? new Date(s.lastActive).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Never';
+    return `
+      <div class="card staff-card ${isActiveToday ? 'active-today' : ''}">
+        <div class="staff-email">${s.email}</div>
+        <div class="staff-meta">
+          Role: <b>${s.role}</b>  ·  Logged Today: <b>${s.entriesToday}</b><br>
+          Status: <span class="pill ${isActiveToday ? 'ok' : ''}">${isActiveToday ? 'Active Today' : 'No Entry Today'}</span><br>
+          <span class="muted">Last active: ${lastActiveText}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  grid.innerHTML = cardsHtml || '<div class="muted">No staff metrics available.</div>';
 }

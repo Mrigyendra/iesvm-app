@@ -857,6 +857,26 @@ body.role-staff .admin-only {
   font-weight: 500;
 }
 
+/* Staff Accountability Cards */
+.staff-card {
+  border-left: 4px solid var(--sub);
+}
+.staff-card.active-today {
+  border-left-color: var(--green);
+}
+.staff-card .staff-email {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 4px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.staff-card .staff-meta {
+  font-size: 12px;
+  color: var(--sub);
+}
+
 /* Print View overrides */
 @media print {
   body {

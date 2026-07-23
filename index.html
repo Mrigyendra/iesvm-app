@@ -76,6 +76,7 @@
     <nav>
       <button class="active" data-view="dashboard">Dashboard</button>
       <button data-view="vehicles">Vehicles</button>
+      <button data-view="drivers">Drivers</button>
       <button data-view="fuel">Fuel & Mileage</button>
       <button data-view="maintenance">Repairs & Maintenance</button>
       <button data-view="reports">Reports</button>
@@ -343,35 +344,67 @@
         </div>
       </section>
 
-      <!-- ACTIVITY VIEW (ADMIN ONLY) -->
-      <section class="view" id="activity">
-        <div class="toolbar">
-          <h2 class="section" style="margin:0">Activity Log</h2>
-          <div class="spacer"></div>
-          <select id="activityFilter" style="width:auto; padding: 6px 12px; border-radius: var(--radius-sm);">
-            <option value="">All Actions</option>
-            <option value="created">Created</option>
-            <option value="updated">Updated</option>
-            <option value="deleted">Deleted</option>
-          </select>
-        </div>
-        <div class="tablewrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Timestamp</th>
-                <th>User</th>
-                <th>Action</th>
-                <th>Table</th>
-                <th>Details</th>
-              </tr>
-            </thead>
-            <tbody id="activityBody"></tbody>
-          </table>
-        </div>
-        <div class="empty" id="activityEmpty" style="display:none">No activity recorded yet.</div>
-      </section>
-    </main>
+        <!-- DRIVERS VIEW -->
+        <section class="view" id="drivers">
+          <div class="toolbar">
+            <h2 class="section" style="margin:0">Drivers Directory</h2>
+            <div class="spacer"></div>
+            <button class="btn" id="btnAddDriver">+ Add Driver</button>
+          </div>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Driver Name</th>
+                  <th>Contact Phone</th>
+                  <th>License No.</th>
+                  <th>License Expiry</th>
+                  <th>Assigned Vehicle</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="driversBody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="driversEmpty" style="display:none">No drivers registered yet.</div>
+        </section>
+
+        <!-- ACTIVITY VIEW (ADMIN ONLY) -->
+        <section class="view" id="activity">
+          <h2 class="section">Staff Accountability & Daily Activity</h2>
+          <div id="staffSummaryGrid" class="grid stat" style="margin-bottom: 20px;"></div>
+          <div class="toolbar">
+            <h3 style="margin:0; font-size: 16px;">Detailed Audit Logs</h3>
+            <div class="spacer"></div>
+            <select id="staffUserFilter" style="width:auto; padding: 6px 12px; border-radius: var(--radius-sm); margin-right: 8px;">
+              <option value="">All Staff Members</option>
+            </select>
+            <select id="activityFilter" style="width:auto; padding: 6px 12px; border-radius: var(--radius-sm);">
+              <option value="">All Actions</option>
+              <option value="created">Created</option>
+              <option value="updated">Updated</option>
+              <option value="deleted">Deleted</option>
+            </select>
+          </div>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>User</th>
+                  <th>Role</th>
+                  <th>Action</th>
+                  <th>Table</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody id="activityBody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="activityEmpty" style="display:none">No activity recorded yet.</div>
+        </section>
+      </main>
 
     <!-- VEHICLE DIALOG -->
     <dialog id="vehDlg">
@@ -483,6 +516,52 @@
       <div class="dlg-foot">
         <button class="btn ghost" id="btnCancelAdminPassDlg">Cancel</button>
         <button class="btn" id="btnConfirmAdminChangePass">Reset Password</button>
+      </div>
+    </dialog>
+
+    <!-- DRIVER DIALOG -->
+    <dialog id="driverDlg">
+      <div class="dlg-head">
+        <span id="driverDlgTitle">Add Driver</span>
+        <button class="x" id="btnCloseDriverDlg">×</button>
+      </div>
+      <div class="dlg-body">
+        <input type="hidden" id="drId">
+        <div class="formgrid">
+          <div>
+            <label class="f" for="drName">Full Name*</label>
+            <input id="drName" placeholder="e.g. Ram Bahadur Shrestha">
+          </div>
+          <div>
+            <label class="f" for="drPhone">Phone Number</label>
+            <input id="drPhone" placeholder="e.g. 9841234567">
+          </div>
+          <div>
+            <label class="f" for="drLicenseNo">License Number*</label>
+            <input id="drLicenseNo" placeholder="e.g. 01-06-12345678">
+          </div>
+          <div>
+            <label class="f" for="drLicenseExpiry">License Expiry Date</label>
+            <input id="drLicenseExpiry" type="date">
+          </div>
+          <div>
+            <label class="f" for="drVehicle">Assigned Vehicle</label>
+            <select id="drVehicle">
+              <option value="">None (Unassigned)</option>
+            </select>
+          </div>
+          <div>
+            <label class="f" for="drStatus">Status</label>
+            <select id="drStatus">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn ghost" id="btnCancelDriverDlg">Cancel</button>
+        <button class="btn" id="btnSaveDriver">Save Driver</button>
       </div>
     </dialog>
 
