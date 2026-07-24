@@ -737,7 +737,8 @@ function renderFuel() {
     const v = store.vehicles.find(x => x.id === r.veh);
     const drName = v ? (v.driver || (store.drivers.find(d => d.assigned_vehicle_id === v.id)?.name || '—')) : '—';
     const avgKml = r.lit ? (r.km / r.lit) : 0;
-    const statusPill = avgKml >= 10.0 ? '<span class="pill ok">Good</span>' : (avgKml > 0 ? '<span class="pill bad">Poor</span>' : '—');
+    const statusStr = avgKml < 10.0 ? 'Poor' : 'Good';
+    const statusPill = statusStr === 'Good' ? '<span class="pill ok">Good</span>' : '<span class="pill bad">Poor</span>';
 
     b.insertAdjacentHTML('beforeend', `<tr>
       <td>${r.date}</td>
@@ -1337,13 +1338,15 @@ function buildSheets(fuelRows, maintRows, periodLabel, vehLabel) {
     const drName = v ? (v.driver || (store.drivers.find(d => d.assigned_vehicle_id === v.id)?.name || '—')) : '—';
     
     let daysVal = r.days;
-    if (daysVal == null && lastDatePerVeh[r.veh]) {
-      daysVal = Math.round((new Date(r.date) - new Date(lastDatePerVeh[r.veh])) / 864e5);
+    if ((daysVal == null || daysVal === '') && lastDatePerVeh[r.veh]) {
+      const d1 = new Date(r.date);
+      const d2 = new Date(lastDatePerVeh[r.veh]);
+      daysVal = Math.max(0, Math.round((d1 - d2) / 864e5));
     }
     lastDatePerVeh[r.veh] = r.date;
 
     const avgKml = r.lit ? Number((r.km / r.lit).toFixed(2)) : 0;
-    const statusVal = avgKml >= 10.0 ? 'Good' : (avgKml > 0 ? 'Poor' : '—');
+    const statusVal = avgKml < 10.0 ? 'Poor' : 'Good';
 
     mainSheet.push([
       sn++,
