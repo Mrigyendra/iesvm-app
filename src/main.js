@@ -216,7 +216,11 @@ async function fetchAllData() {
       prevOdo: Number(r.prev_odo),
       odo: Number(r.odo),
       lit: Number(r.lit),
-      cost: Number(r.cost)
+      cost: Number(r.cost),
+      vatBillNo: r.vat_bill_no || '',
+      location: r.location || '',
+      days: r.days != null ? Number(r.days) : null,
+      remarks: r.remarks || ''
     }));
 
     // 3. Fetch Maintenance
@@ -627,6 +631,9 @@ async function addFuel() {
   const cur = Number(document.getElementById('fOdo').value);
   const lit = Number(document.getElementById('fLit').value);
   const cost = Number(document.getElementById('fCost').value) || 0;
+  const vatBill = document.getElementById('fVatBill') ? document.getElementById('fVatBill').value.trim() : '';
+  const loc = document.getElementById('fLocation') ? document.getElementById('fLocation').value.trim() : '';
+  const rem = document.getElementById('fRemarks') ? document.getElementById('fRemarks').value.trim() : '';
 
   if (!veh) {
     alert('Add and select a vehicle first');
@@ -652,6 +659,14 @@ async function addFuel() {
     return;
   }
 
+  // Auto calculate days since previous refuel date for this vehicle
+  let daysVal = null;
+  const prevLogs = store.fuel.filter(x => x.veh === veh).sort((a, b) => b.date.localeCompare(a.date));
+  if (prevLogs.length && prevLogs[0].date) {
+    const diff = Math.round((new Date(date) - new Date(prevLogs[0].date)) / 864e5);
+    if (diff >= 0) daysVal = diff;
+  }
+
   const payload = {
     veh,
     date,
@@ -659,7 +674,11 @@ async function addFuel() {
     prev_odo: prev,
     odo: cur,
     lit,
-    cost
+    cost,
+    vat_bill_no: vatBill,
+    location: loc,
+    days: daysVal,
+    remarks: rem
   };
 
   try {
@@ -675,6 +694,9 @@ async function addFuel() {
     document.getElementById('fOdo').value = '';
     document.getElementById('fLit').value = '';
     document.getElementById('fCost').value = '';
+    if (document.getElementById('fVatBill')) document.getElementById('fVatBill').value = '';
+    if (document.getElementById('fLocation')) document.getElementById('fLocation').value = '';
+    if (document.getElementById('fRemarks')) document.getElementById('fRemarks').value = '';
     document.getElementById('fPrevOdo').value = '';
     document.getElementById('fPrevOdo').placeholder = 'auto';
     document.getElementById('fPreview').textContent = '';
@@ -712,16 +734,25 @@ function renderFuel() {
   document.getElementById('fuelEmpty').style.display = rows.length ? 'none' : 'block';
 
   rows.forEach(r => {
+    const v = store.vehicles.find(x => x.id === r.veh);
+    const drName = v ? (v.driver || (store.drivers.find(d => d.assigned_vehicle_id === v.id)?.name || '—')) : '—';
+    const avgKml = r.lit ? (r.km / r.lit) : 0;
+    const statusPill = avgKml >= 10.0 ? '<span class="pill ok">Good</span>' : (avgKml > 0 ? '<span class="pill bad">Poor</span>' : '—');
+
     b.insertAdjacentHTML('beforeend', `<tr>
       <td>${r.date}</td>
       <td class="vehchip">${vName(r.veh)}</td>
+      <td>${drName}</td>
+      <td><code>${r.vatBillNo || '—'}</code></td>
+      <td>${r.location || '—'}</td>
       <td>${r.prevOdo != null ? r.prevOdo.toLocaleString() : '—'}</td>
       <td>${r.odo != null ? r.odo.toLocaleString() : '—'}</td>
       <td>${r.km}</td>
       <td>${r.lit}</td>
-      <td><b>${(r.km / r.lit).toFixed(2)}</b></td>
+      <td><b>${avgKml.toFixed(2)}</b></td>
+      <td>${statusPill}</td>
+      <td>${r.remarks || '—'}</td>
       <td>${r.cost ? money(r.cost) : '—'}</td>
-      <td>${r.cost && r.lit ? money(r.cost / r.lit) : '—'}</td>
       <td><button class="btn danger sm admin-only" onclick="delFuel('${r.id}')">Del</button></td>
     </tr>`);
   });
@@ -1281,19 +1312,54 @@ function buildSheets(fuelRows, maintRows, periodLabel, vehLabel) {
     ]);
   });
 
-  // Fuel list sheet
-  const fuelSheet = [['Date', 'Vehicle', 'Prev Odometer', 'Current Odometer', 'Distance (km)', 'Fuel (L)', 'Mileage (km/L)', 'Fuel Cost', 'Rate/L']];
-  fuelRows.sort((a, b) => a.date.localeCompare(b.date)).forEach(r => {
-    fuelSheet.push([
+  // Official Company Sheet: Vehicle Management Sheet (14-column layout)
+  const companySheetHeaders = [
+    'S.N', 'Vehicle No', 'Driver Name', 'Fuel-Bill-KM Date', 'Days', 
+    'Vat Bill no', 'Fuel Refill Location', 'Fuel Qty (Ltr)', 'Previous KM', 
+    'Recent KM', 'Total Net Km', 'Avg KM/L', 'status', 'Remarks'
+  ];
+  const mainSheet = [companySheetHeaders];
+  
+  // Sort fuel rows by vehicle number, then date ascending to compute days cleanly
+  const sortedFuel = [...fuelRows].sort((a, b) => {
+    const vA = vName(a.veh);
+    const vB = vName(b.veh);
+    if (vA !== vB) return vA.localeCompare(vB);
+    return a.date.localeCompare(b.date);
+  });
+
+  const lastDatePerVeh = {};
+  let sn = 1;
+
+  sortedFuel.forEach(r => {
+    const vNo = vName(r.veh);
+    const v = store.vehicles.find(x => x.id === r.veh);
+    const drName = v ? (v.driver || (store.drivers.find(d => d.assigned_vehicle_id === v.id)?.name || '—')) : '—';
+    
+    let daysVal = r.days;
+    if (daysVal == null && lastDatePerVeh[r.veh]) {
+      daysVal = Math.round((new Date(r.date) - new Date(lastDatePerVeh[r.veh])) / 864e5);
+    }
+    lastDatePerVeh[r.veh] = r.date;
+
+    const avgKml = r.lit ? Number((r.km / r.lit).toFixed(2)) : 0;
+    const statusVal = avgKml >= 10.0 ? 'Good' : (avgKml > 0 ? 'Poor' : '—');
+
+    mainSheet.push([
+      sn++,
+      vNo,
+      drName,
       r.date,
-      vName(r.veh),
+      daysVal ?? '',
+      r.vatBillNo || '',
+      r.location || '',
+      r.lit,
       r.prevOdo ?? '',
       r.odo ?? '',
       r.km,
-      r.lit,
-      Number((r.km / r.lit).toFixed(2)),
-      r.cost || 0,
-      r.cost && r.lit ? Number((r.cost / r.lit).toFixed(2)) : ''
+      avgKml,
+      statusVal,
+      r.remarks || ''
     ]);
   });
 
@@ -1314,17 +1380,33 @@ function buildSheets(fuelRows, maintRows, periodLabel, vehLabel) {
   });
 
   const wb = XLSX.utils.book_new();
+  
+  const s2 = XLSX.utils.aoa_to_sheet(mainSheet);
+  s2['!cols'] = [
+    { wch: 5 },  // S.N
+    { wch: 15 }, // Vehicle No
+    { wch: 16 }, // Driver Name
+    { wch: 14 }, // Date
+    { wch: 6 },  // Days
+    { wch: 18 }, // Vat Bill no
+    { wch: 22 }, // Fuel Refill Location
+    { wch: 12 }, // Fuel Qty (Ltr)
+    { wch: 12 }, // Previous KM
+    { wch: 12 }, // Recent KM
+    { wch: 12 }, // Total Net Km
+    { wch: 10 }, // Avg KM/L
+    { wch: 8 },  // status
+    { wch: 25 }  // Remarks
+  ];
+
   const s1 = XLSX.utils.aoa_to_sheet(summary);
   s1['!cols'] = [{ wch: 24 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
-
-  const s2 = XLSX.utils.aoa_to_sheet(fuelSheet);
-  s2['!cols'] = [{ wch: 12 }, { wch: 18 }, { wch: 15 }, { wch: 16 }, { wch: 13 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 10 }];
 
   const s3 = XLSX.utils.aoa_to_sheet(maintSheet);
   s3['!cols'] = [{ wch: 12 }, { wch: 18 }, { wch: 16 }, { wch: 30 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 12 }];
 
+  XLSX.utils.book_append_sheet(wb, s2, 'Vehicle Management Sheet');
   XLSX.utils.book_append_sheet(wb, s1, 'Summary');
-  XLSX.utils.book_append_sheet(wb, s2, 'Fuel & Mileage');
   XLSX.utils.book_append_sheet(wb, s3, 'Maintenance');
   return wb;
 }
@@ -1607,8 +1689,8 @@ function renderExpiryWidget() {
   store.vehicles.forEach(v => {
     const docs = [
       { label: 'Insurance', val: v.insurance_expiry },
-      { label: 'PUC Certificate', val: v.puc_expiry },
-      { label: 'Fitness / Permit', val: v.fitness_expiry }
+      { label: 'Vehicle Registration', val: v.puc_expiry },
+      { label: 'Quality Check', val: v.fitness_expiry }
     ];
     
     docs.forEach(d => {

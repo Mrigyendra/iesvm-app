@@ -172,6 +172,18 @@
               <label class="f" for="fCost">Fuel cost (total)</label>
               <input type="number" id="fCost" placeholder="optional" step="0.01">
             </div>
+            <div>
+              <label class="f" for="fVatBill">Vat Bill No.</label>
+              <input id="fVatBill" placeholder="e.g. 610446344 / sajha 697404">
+            </div>
+            <div>
+              <label class="f" for="fLocation">Fuel Refill Location</label>
+              <input id="fLocation" placeholder="e.g. Sajha Pump, Hetauda">
+            </div>
+            <div>
+              <label class="f" for="fRemarks">Remarks / Site</label>
+              <input id="fRemarks" placeholder="e.g. Jhapa site, city/AC">
+            </div>
           </div>
           <div class="muted" id="fPreview" style="margin-bottom:12px"></div>
           <button class="btn green" id="btnSaveFuel">Save Fuel Entry</button>
@@ -190,14 +202,18 @@
               <tr>
                 <th>Date</th>
                 <th>Vehicle</th>
+                <th>Driver</th>
+                <th>Vat Bill No</th>
+                <th>Refill Location</th>
                 <th>Prev Odo</th>
                 <th>Curr Odo</th>
-                <th>km</th>
+                <th>Net km</th>
                 <th>Litres</th>
                 <th>km/L</th>
+                <th>Status</th>
+                <th>Remarks</th>
                 <th>Cost</th>
-                <th>Rate/L</th>
-                <th></th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="fuelBody"></tbody>
@@ -457,11 +473,11 @@
             <input id="vInsuranceExpiry" type="date">
           </div>
           <div>
-            <label class="f" for="vPucExpiry">PUC Expiry</label>
+            <label class="f" for="vPucExpiry">Vehicle Registration Expiry</label>
             <input id="vPucExpiry" type="date">
           </div>
           <div>
-            <label class="f" for="vFitnessExpiry">Fitness / Permit Expiry</label>
+            <label class="f" for="vFitnessExpiry">Quality Check Expiry</label>
             <input id="vFitnessExpiry" type="date">
           </div>
         </div>
