@@ -308,7 +308,14 @@ function setupControls() {
     document.getElementById('importFile').click();
   });
   document.getElementById('importFile').addEventListener('change', importData);
-  document.getElementById('btnLoadSample').addEventListener('click', loadSample);
+
+  // Fuel Edit Dialog (Admin Only)
+  const fuelDlg = document.getElementById('fuelDlg');
+  if (fuelDlg) {
+    document.getElementById('btnCloseFuelDlg').addEventListener('click', () => fuelDlg.close());
+    document.getElementById('btnCancelFuelDlg').addEventListener('click', () => fuelDlg.close());
+    document.getElementById('btnUpdateFuel').addEventListener('click', updateFuel);
+  }
 
   // Excel & Reports Action
   document.getElementById('btnExportMonthExcel').addEventListener('click', exportMonthExcel);
@@ -744,7 +751,7 @@ function renderFuel() {
       <td>${r.date}</td>
       <td class="vehchip">${vName(r.veh)}</td>
       <td>${drName}</td>
-      <td><code>${r.vatBillNo || '—'}</code></td>
+      <td>${r.vatBillNo || '—'}</td>
       <td>${r.location || '—'}</td>
       <td>${r.prevOdo != null ? r.prevOdo.toLocaleString() : '—'}</td>
       <td>${r.odo != null ? r.odo.toLocaleString() : '—'}</td>
@@ -754,9 +761,80 @@ function renderFuel() {
       <td>${statusPill}</td>
       <td>${r.remarks || '—'}</td>
       <td>${r.cost ? money(r.cost) : '—'}</td>
-      <td><button class="btn danger sm admin-only" onclick="delFuel('${r.id}')">Del</button></td>
+      <td style="white-space:nowrap">
+        <button class="btn ghost sm admin-only" onclick="openFuel('${r.id}')">Edit</button>
+        <button class="btn danger sm admin-only" onclick="delFuel('${r.id}')">Del</button>
+      </td>
     </tr>`);
   });
+}
+
+window.openFuel = function(id) {
+  if (store.role !== 'admin') return;
+  const r = store.fuel.find(x => x.id === id);
+  if (!r) return;
+
+  // Populate vehicle dropdown
+  const opts = store.vehicles.map(v => `<option value="${v.id}">${v.no}${v.model ? ' — ' + v.model : ''}</option>`).join('');
+  document.getElementById('feVeh').innerHTML = opts;
+
+  document.getElementById('feId').value = r.id;
+  document.getElementById('feVeh').value = r.veh;
+  document.getElementById('feDate').value = r.date;
+  document.getElementById('fePrevOdo').value = r.prevOdo ?? '';
+  document.getElementById('feOdo').value = r.odo ?? '';
+  document.getElementById('feLit').value = r.lit;
+  document.getElementById('feCost').value = r.cost || '';
+  document.getElementById('feVatBill').value = r.vatBillNo || '';
+  document.getElementById('feLocation').value = r.location || '';
+  document.getElementById('feRemarks').value = r.remarks || '';
+  document.getElementById('fuelDlg').showModal();
+};
+
+async function updateFuel() {
+  if (!requireAdmin()) return;
+  const id = document.getElementById('feId').value;
+  const veh = document.getElementById('feVeh').value;
+  const date = document.getElementById('feDate').value;
+  const prevOdo = Number(document.getElementById('fePrevOdo').value);
+  const odo = Number(document.getElementById('feOdo').value);
+  const lit = Number(document.getElementById('feLit').value);
+  const cost = Number(document.getElementById('feCost').value) || 0;
+  const vatBill = document.getElementById('feVatBill').value.trim();
+  const loc = document.getElementById('feLocation').value.trim();
+  const rem = document.getElementById('feRemarks').value.trim();
+
+  if (!veh || !date || !odo || !lit) {
+    alert('Vehicle, date, current odometer and litres are required.');
+    return;
+  }
+  if (odo <= prevOdo) {
+    alert('Current odometer must be greater than previous odometer.');
+    return;
+  }
+
+  const payload = {
+    veh,
+    date,
+    km: odo - prevOdo,
+    prev_odo: prevOdo,
+    odo,
+    lit,
+    cost,
+    vat_bill_no: vatBill,
+    location: loc,
+    remarks: rem
+  };
+
+  try {
+    const { error } = await supabase.from('fuel').update(payload).eq('id', id);
+    if (error) throw error;
+    logActivity('updated', 'fuel', id, `Updated fuel entry: ${vName(veh)} (${odo - prevOdo} km, ${lit} L)`);
+    document.getElementById('fuelDlg').close();
+    await fetchAllData();
+  } catch (err) {
+    alert('Error updating fuel entry: ' + err.message);
+  }
 }
 
 // ---- Maintenance Section Operations ----

@@ -66,7 +66,6 @@
         <span class="rolebadge admin" id="roleBadge">Supervisor</span>
         <button class="databtn" id="btnExportData">↓ Backup</button>
         <button class="databtn admin-only" id="btnRestoreDataTrigger">↑ Restore</button>
-        <button class="databtn admin-only" id="btnLoadSample">Sample Data</button>
         <button class="databtn" id="btnChangePass">Change Password</button>
         <button class="databtn" id="btnLogout">Logout</button>
         <input type="file" id="importFile" accept=".json" style="display:none">
@@ -578,6 +577,59 @@
       <div class="dlg-foot">
         <button class="btn ghost" id="btnCancelDriverDlg">Cancel</button>
         <button class="btn" id="btnSaveDriver">Save Driver</button>
+      </div>
+    </dialog>
+
+    <!-- FUEL EDIT DIALOG (Admin Only) -->
+    <dialog id="fuelDlg">
+      <div class="dlg-head">
+        <span>Edit Fuel Entry</span>
+        <button class="x" id="btnCloseFuelDlg">&times;</button>
+      </div>
+      <div class="dlg-body">
+        <input type="hidden" id="feId">
+        <div class="formgrid">
+          <div>
+            <label class="f" for="feVeh">Vehicle</label>
+            <select id="feVeh"></select>
+          </div>
+          <div>
+            <label class="f" for="feDate">Date</label>
+            <input type="date" id="feDate">
+          </div>
+          <div>
+            <label class="f" for="fePrevOdo">Previous odometer (km)</label>
+            <input type="number" id="fePrevOdo" step="0.1">
+          </div>
+          <div>
+            <label class="f" for="feOdo">Current odometer (km)</label>
+            <input type="number" id="feOdo" step="0.1">
+          </div>
+          <div>
+            <label class="f" for="feLit">Fuel inserted (L)</label>
+            <input type="number" id="feLit" step="0.01">
+          </div>
+          <div>
+            <label class="f" for="feCost">Fuel cost (total)</label>
+            <input type="number" id="feCost" step="0.01" placeholder="optional">
+          </div>
+          <div>
+            <label class="f" for="feVatBill">Vat Bill No.</label>
+            <input id="feVatBill" placeholder="e.g. 610446344">
+          </div>
+          <div>
+            <label class="f" for="feLocation">Fuel Refill Location</label>
+            <input id="feLocation" placeholder="e.g. Sajha Pump">
+          </div>
+          <div>
+            <label class="f" for="feRemarks">Remarks / Site</label>
+            <input id="feRemarks" placeholder="e.g. Jhapa site">
+          </div>
+        </div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn ghost" id="btnCancelFuelDlg">Cancel</button>
+        <button class="btn" id="btnUpdateFuel">Update Entry</button>
       </div>
     </dialog>
 
