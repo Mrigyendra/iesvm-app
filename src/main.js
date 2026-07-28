@@ -29,6 +29,12 @@ const vName = id => {
   return v ? v.no : '—';
 };
 
+const formatUserLabel = email => {
+  if (!email) return 'System';
+  const namePart = email.split('@')[0];
+  return namePart.replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+};
+
 // ---- Authentication Setup ----
 let isSignUpMode = false;
 let pickedRole = 'admin';
@@ -1597,7 +1603,7 @@ function renderAccounts() {
       : `<button class="btn ghost sm" onclick="openResetPassDlg('${a.id}', '${a.email}')">Reset Password</button>`;
 
     b.insertAdjacentHTML('beforeend', `<tr>
-      <td><b>${a.email}</b></td>
+      <td><b>${formatUserLabel(a.email)}</b> <span class="muted" style="font-size:12px; font-weight:normal">(${a.email})</span></td>
       <td>${roleSelect}</td>
       <td>
         <div style="display:flex; gap:8px; align-items:center;">
@@ -1748,7 +1754,7 @@ function renderActivityLogs() {
 
     b.insertAdjacentHTML('beforeend', `<tr>
       <td style="white-space:nowrap">${ts}</td>
-      <td>${r.user_email}</td>
+      <td><b>${formatUserLabel(r.user_email)}</b></td>
       <td>${roleBadge}</td>
       <td><span class="${actionClass}">${r.action}</span></td>
       <td><code>${r.table_name}</code></td>
@@ -2018,7 +2024,7 @@ function renderStaffSummary() {
   if (userFilt) {
     const curVal = userFilt.value;
     const staffEmails = Object.keys(staffMap).sort();
-    userFilt.innerHTML = '<option value="">All Staff Members</option>' + staffEmails.map(e => `<option value="${e}">${e}</option>`).join('');
+    userFilt.innerHTML = '<option value="">All Staff Members</option>' + staffEmails.map(e => `<option value="${e}">${formatUserLabel(e)}</option>`).join('');
     userFilt.value = curVal;
   }
 
@@ -2026,9 +2032,10 @@ function renderStaffSummary() {
   const cardsHtml = Object.values(staffMap).map(s => {
     const isActiveToday = s.entriesToday > 0;
     const lastActiveText = s.lastActive ? new Date(s.lastActive).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Never';
+    const displayName = formatUserLabel(s.email);
     return `
       <div class="card staff-card ${isActiveToday ? 'active-today' : ''}">
-        <div class="staff-email">${s.email}</div>
+        <div class="staff-email">${displayName}</div>
         <div class="staff-meta">
           Role: <b>${s.role}</b>  ·  Logged Today: <b>${s.entriesToday}</b><br>
           Status: <span class="pill ${isActiveToday ? 'ok' : ''}">${isActiveToday ? 'Active Today' : 'No Entry Today'}</span><br>
