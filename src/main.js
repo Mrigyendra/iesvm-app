@@ -1998,25 +1998,18 @@ function renderStaffSummary() {
     };
   });
 
-  // Calculate metrics from store.activityLogs
+  // Calculate metrics from store.activityLogs ONLY for active accounts in store.accounts
   store.activityLogs.forEach(log => {
     const email = log.user_email;
-    if (!staffMap[email]) {
-      staffMap[email] = {
-        email,
-        role: log.user_role || 'staff',
-        entriesToday: 0,
-        totalEntries: 0,
-        lastActive: null
-      };
-    }
     const s = staffMap[email];
-    s.totalEntries += 1;
-    if (log.created_at && log.created_at.startsWith(todayStr)) {
-      s.entriesToday += 1;
-    }
-    if (!s.lastActive || new Date(log.created_at) > new Date(s.lastActive)) {
-      s.lastActive = log.created_at;
+    if (s) {
+      s.totalEntries += 1;
+      if (log.created_at && log.created_at.startsWith(todayStr)) {
+        s.entriesToday += 1;
+      }
+      if (!s.lastActive || new Date(log.created_at) > new Date(s.lastActive)) {
+        s.lastActive = log.created_at;
+      }
     }
   });
 
